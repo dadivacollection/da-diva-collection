@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="hi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DA Diva Admin</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f2f4;font-family:Arial}.box{max-width:850px;margin:22px auto;padding:15px}
+.panel{background:#fff;padding:22px;border-radius:16px;box-shadow:0 4px 18px #0001}h1{color:#8d2452}
+label{display:block;font-weight:bold;margin-top:12px}input,textarea{width:100%;padding:12px;margin-top:5px;border:1px solid #ddd;border-radius:9px}
+button{border:0;padding:10px 15px;border-radius:9px;cursor:pointer;margin-top:12px}.primary{background:#8d2452;color:#fff}.secondary{background:#eee}.danger{background:#f4d9df}
+.hidden{display:none}.status{padding:10px;background:#f6edf1;border-radius:9px;margin:10px 0}.item{display:flex;gap:12px;align-items:center;border-top:1px solid #eee;padding:12px 0}
+.item img{width:65px;height:65px;object-fit:cover;border-radius:8px}.grow{flex:1}.small{font-size:13px;color:#666}
+</style></head><body><div class="box"><div class="panel">
+<h1>DA Diva Collection — Admin</h1>
+<section id="login"><label>Email</label><input id="email" type="email"><label>Password</label><input id="password" type="password"><button class="primary" onclick="login()">Login</button><div id="msg"></div></section>
+<section id="app" class="hidden"><div class="status">Logged in: <b id="who"></b> <button class="secondary" onclick="logout()">Logout</button></div>
+<h2 id="title">Add Product</h2><form id="form"><input id="editId" type="hidden">
+<label>Product Name *</label><input id="name" required><label>Price</label><input id="price" placeholder="₹499">
+<label>Category</label><input id="category" placeholder="Jewellery / Fashion / Beauty"><label>Description</label><textarea id="description" rows="3"></textarea>
+<label>Product Image</label><input id="image" type="file" accept="image/*"><div id="current" class="small"></div>
+<label>Buy / Affiliate Link *</label><input id="link" type="url" placeholder="https://..." required>
+<button id="save" class="primary">➕ Add Product</button><button type="button" class="secondary" onclick="resetForm()">Clear</button></form>
+<h2>Products</h2><div id="list"></div></section></div></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>
+const db=supabase.createClient("https://dhvjdzmdglpvlfaugyti.supabase.co","sb_publishable__LaL4b7mvou-w4w8LtKAog_53UF2TyM");let products=[];
+const $=x=>document.getElementById(x);
+async function init(){const r=await db.auth.getSession();if(r.data.session)show(r.data.session.user);else $("login").classList.remove("hidden")}
+function show(u){$("login").classList.add("hidden");$("app").classList.remove("hidden");$("who").textContent=u.email;load()}
+async function login(){msg.textContent="Logging in...";const r=await db.auth.signInWithPassword({email:email.value.trim(),password:password.value});if(r.error)msg.textContent=r.error.message;else show(r.data.user)}
+async function logout(){await db.auth.signOut();location.reload()}
+async function load(){const r=await db.from("products").select("*").order("created_at",{ascending:false});if(r.error)return alert(r.error.message);products=r.data||[];list.innerHTML=products.map(p=>`<div class="item"><img src="${p.image_url||"https://via.placeholder.com/80?text=No+Image"}"><div class="grow"><b>${esc(p.name)}</b><br><span class="small">${esc(p.price||"")} · ${esc(p.category||"")}</span></div><button onclick="edit('${p.id}')">✏️</button><button class="danger" onclick="del('${p.id}')">🗑️</button></div>`).join("")||"<p class='small'>No products yet.</p>"}
+async function upload(f){if(!f)return null;const ext=(f.name.split(".").pop()||"jpg").toLowerCase(),path=crypto.randomUUID()+"."+ext;const r=await db.storage.from("product-images").upload(path,f,{contentType:f.type});if(r.error)throw r.error;return db.storage.from("product-images").getPublicUrl(path).data.publicUrl}
+form.onsubmit=async e=>{e.preventDefault();save.disabled=true;try{let image=current.dataset.url||null;if(image.files){}const f=$("image").files[0];if(f)image=await upload(f);const row={name:name.value.trim(),price:price.value.trim(),category:category.value.trim(),description:description.value.trim(),image_url:image,buy_link:link.value.trim(),is_active:true};let r=editId.value?await db.from("products").update(row).eq("id",editId.value):await db.from("products").insert(row);if(r.error)throw r.error;alert(editId.value?"Product updated!":"Product added!");resetForm();load()}catch(e){alert(e.message)}save.disabled=false}
+function edit(id){const p=products.find(x=>String(x.id)==String(id));editId.value=p.id;name.value=p.name;price.value=p.price||"";category.value=p.category||"";description.value=p.description||"";link.value=p.buy_link;current.dataset.url=p.image_url||"";current.textContent=p.image_url?"Current image saved.":"";title.textContent="Edit Product";save.textContent="💾 Update Product";scrollTo(0,0)}
+async function del(id){if(confirm("Delete this product?")){const r=await db.from("products").delete().eq("id",id);if(r.error)alert(r.error.message);else load()}}
+function resetForm(){form.reset();editId.value="";current.dataset.url="";current.textContent="";title.textContent="Add Product";save.textContent="➕ Add Product"}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}init();
+</script></body></html>
