@@ -40,6 +40,50 @@ footer{background:#21131a;color:#fff}.foot{max-width:1180px;margin:auto;padding:
 .foot p{color:#cbbec4;margin:7px 0;font-size:13px}.foot a{color:#fff}
 @media(max-width:900px){.hero{grid-template-columns:1fr}.hero-photo{height:260px}.grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:650px){.brand span{display:none}.hero{padding:35px 18px 48px}.hero h1{font-size:42px}.hero p{font-size:16px}.hero-photo{height:220px}.grid{grid-template-columns:repeat(2,1fr);gap:12px}.info{padding:11px}.info h3{font-size:15px}.price{font-size:17px}.buy{padding:9px 10px}}
+/* Important Information */
+.important-info{
+  max-width:1180px;
+  margin:35px auto 0;
+  padding:28px 22px;
+  background:#fff7fb;
+  border:1px solid #ead5e0;
+  border-radius:18px;
+  box-sizing:border-box;
+}
+
+.important-info h2{
+  margin:0 0 18px;
+  color:#8d2457;
+  font-size:24px;
+}
+
+.important-info p{
+  margin:10px 0;
+  color:#5f5058;
+  font-size:15px;
+  line-height:1.7;
+}
+
+.important-info strong{
+  color:#8d2457;
+}
+
+@media(max-width:700px){
+  .important-info{
+    margin:25px 15px 0;
+    padding:22px 18px;
+    border-radius:16px;
+  }
+
+  .important-info h2{
+    font-size:21px;
+  }
+
+  .important-info p{
+    font-size:14px;
+    line-height:1.65;
+  }
+}
 </style>
 </head>
 <body>
@@ -59,6 +103,17 @@ footer{background:#21131a;color:#fff}.foot{max-width:1180px;margin:auto;padding:
 <div class="head"><h2 id="sectionTitle">Featured Collection</h2><div id="count" class="count"></div></div>
 <div id="grid" class="grid"></div>
 </main>
+ <section class="important-info">
+  <h2>Important Information</h2>
+
+  <p><strong>Prices & Availability:</strong> Product prices, discounts and availability may change over time. The final price may be different on the seller's website.</p>
+
+  <p><strong>Product Images:</strong> Images are for reference. Colour, size, design or appearance may vary slightly from the images shown.</p>
+
+  <p><strong>Before You Buy:</strong> Please check the final price, delivery charges, product details and return/refund policy on the seller's website before purchasing.</p>
+
+  <p><strong>Affiliate Disclosure:</strong> Some links on this website may be affiliate links. We may earn a small commission from qualifying purchases at no extra cost to you.</p>
+</section>
 <footer><div class="foot"><div><b id="footerName">DA Diva Collection</b><p id="footerText">Trendy picks • Easy shopping</p></div><div><span>Instagram: </span><a id="footerInstagram" href="#" target="_blank">@DAdivacollection</a></div></div></footer>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
