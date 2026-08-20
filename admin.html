@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DA Diva Admin</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f2f4;font-family:Arial,sans-serif;color:#222}
+.box{max-width:900px;margin:20px auto;padding:15px}.panel{background:#fff;padding:22px;border-radius:16px;box-shadow:0 4px 18px #0001}
+h1,h2{color:#8d2452}label{display:block;font-weight:bold;margin-top:12px}input,textarea{width:100%;padding:12px;margin-top:6px;border:1px solid #ddd;border-radius:9px;font-size:15px}
+button{border:0;padding:10px 14px;border-radius:9px;cursor:pointer;margin-top:10px}.primary{background:#8d2452;color:#fff}.secondary{background:#eee}.danger{background:#f4d9df}
+.hidden{display:none}.status{padding:10px;background:#f6edf1;border-radius:9px;margin:10px 0}.section{border-top:1px solid #eee;margin-top:25px;padding-top:20px}
+.item{display:flex;gap:10px;align-items:center;border-top:1px solid #eee;padding:12px 0}.item img{width:65px;height:65px;object-fit:cover;border-radius:8px}.grow{flex:1}.small{font-size:13px;color:#666}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:650px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body><div class="box"><div class="panel">
+<h1>DA Diva Collection — Admin</h1>
+<section id="loginBox"><label>Email</label><input id="emailInput" type="email"><label>Password</label><input id="passwordInput" type="password"><button id="loginBtn" class="primary">Login</button><div id="loginMsg"></div></section>
+<section id="app" class="hidden">
+<div class="status">Logged in: <b id="userEmail"></b> <button id="logoutBtn" class="secondary">Logout</button></div>
+
+<div class="section" style="border-top:0;margin-top:0;padding-top:0">
+<h2>🎨 Website Banner & Settings</h2>
+<p class="small">Yahan se customer website ka text, logo, banner photo, Instagram aur footer change kar sakte ho. GitHub code edit karne ki zarurat nahi.</p>
+<label>Brand Name</label><input id="brandName">
+<div class="grid2">
+<div><label>Hero Heading</label><input id="heroTitle"></div>
+<div><label>Hero Button Text</label><input id="heroCta"></div>
+</div>
+<label>Hero Description</label><textarea id="heroText" rows="3"></textarea>
+<label>Banner / Hero Photo</label><input id="heroImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+<small style="display:block;margin-top:6px;color:#766b71;">Image will be optimized automatically for faster loading.</small><div id="heroCurrent" class="small"></div>
+<label>Logo Photo (optional)</label><input id="logoImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div id="logoCurrent" class="small"></div>
+<div class="grid2">
+<div><label>Instagram Handle</label><input id="instagramHandle" placeholder="@DAdivacollection"></div>
+<div><label>Instagram URL</label><input id="instagramUrl" placeholder="https://instagram.com/DAdivacollection"></div>
+</div>
+<label>Collection Section Title</label><input id="sectionTitle">
+<label>Footer Text</label><input id="footerText">
+<button id="saveSettings" class="primary">💾 Save Website Settings</button>
+</div>
+
+<div class="section">
+<h2 id="formTitle">➕ Add Product</h2>
+<form id="productForm"><input id="editId" type="hidden">
+<label>Product Name *</label><input id="productName" required>
+<div class="grid2"><div><label>Price</label><input id="productPrice" placeholder="₹499"></div><div><label>Category</label><input id="productCategory" placeholder="Jewellery / Fashion / Beauty"></div></div>
+<label>Description</label><textarea id="productDescription" rows="3"></textarea>
+<label>Product Image</label><input id="productImage" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><div id="currentImage" class="small"></div>
+<label>Buy / Affiliate Link *</label><input id="buyLink" type="url" placeholder="https://..." required>
+<button id="saveBtn" class="primary" type="submit">➕ Add Product</button><button id="clearBtn" class="secondary" type="button">Clear</button></form>
+</div>
+<div class="section"><h2>Products</h2><div id="productsList"></div></div>
+</section></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const db=supabase.createClient("https://dhvjdzmdglpvlfaugyti.supabase.co","sb_publishable__LaL4b7mvou-w4w8LtKAog_53UF2TyM");let products=[],settings={};
+const $=id=>document.getElementById(id);
+async function init(){const r=await db.auth.getSession();if(r.data.session)show(r.data.session.user);}
+function show(u){$("loginBox").classList.add("hidden");$("app").classList.remove("hidden");$("userEmail").textContent=u.email||"";loadSettings();loadProducts();}
+$("loginBtn").onclick=async()=>{loginMsg.textContent="Logging in...";const r=await db.auth.signInWithPassword({email:emailInput.value.trim(),password:passwordInput.value});if(r.error)loginMsg.textContent=r.error.message;else show(r.data.user);};
+$("logoutBtn").onclick=async()=>{await db.auth.signOut();location.reload();};
+
+
+async function optimizeImage(file){
+  if(!file || !file.type.startsWith("image/")) return file;
+
+  const MAX_SIZE = 1400;
+  const QUALITY = 0.82;
+
+  // Keep animated GIF/SVG as-is.
+  if(file.type === "image/gif" || file.type === "image/svg+xml") return file;
+
+  let source = null;
+  let objectUrl = null;
+
+  try{
+    // First try the fast decoder.
+    try{
+      source = await createImageBitmap(file);
+    }catch(_){
+      // Fallback for browsers where createImageBitmap cannot decode the file.
+      objectUrl = URL.createObjectURL(file);
+      source = await new Promise((resolve,reject)=>{
+        const img = new Image();
+        img.onload = ()=>resolve(img);
+        img.onerror = ()=>reject(new Error("This image format cannot be decoded by this browser."));
+        img.src = objectUrl;
+      });
+    }
+
+    const srcWidth = source.width || source.naturalWidth;
+    const srcHeight = source.height || source.naturalHeight;
+    if(!srcWidth || !srcHeight) throw new Error("Image dimensions could not be read.");
+
+    const scale = Math.min(1, MAX_SIZE / Math.max(srcWidth, srcHeight));
+    const width = Math.max(1, Math.round(srcWidth * scale));
+    const height = Math.max(1, Math.round(srcHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d", {alpha:false});
+    if(!ctx) throw new Error("Your browser could not create an image canvas.");
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0,0,width,height);
+    ctx.drawImage(source, 0, 0, width, height);
+
+    if(source.close) source.close();
+    if(objectUrl) URL.revokeObjectURL(objectUrl);
+
+    // JPEG is intentionally used here because it has the widest browser/device support.
+    const blob = await new Promise((resolve,reject)=>{
+      canvas.toBlob(b=>b ? resolve(b) : reject(new Error("Image conversion failed.")), "image/jpeg", QUALITY);
+    });
+
+    const base = file.name.replace(/\.[^.]+$/, "") || "product";
+    return new File([blob], `${base}.jpg`, {
+      type:"image/jpeg",
+      lastModified:Date.now()
+    });
+  }catch(err){
+    if(source && source.close) source.close();
+    if(objectUrl) URL.revokeObjectURL(objectUrl);
+    throw new Error(
+      "Image upload failed. Please choose a JPG, PNG or WebP image. " +
+      "If this photo is HEIC/HEIF, save/share it as JPG first."
+    );
+  }
+}
+
+async function uploadImage(file){
+  file = await optimizeImage(file);if(!file)return null;const ext=(file.name.split(".").pop()||"jpg").toLowerCase();const path=crypto.randomUUID()+"."+ext;const r=await db.storage.from("product-images").upload(path,file,{contentType:file.type,upsert:false});if(r.error)throw r.error;return db.storage.from("product-images").getPublicUrl(path).data.publicUrl;}
+
+async function loadSettings(){
+ const r=await db.from("site_settings").select("*").eq("id",1).maybeSingle();
+ if(r.error){alert("Website settings table/policy error: "+r.error.message);return;}
+ settings=r.data||{};
+ brandName.value=settings.brand_name||"DA Diva Collection";heroTitle.value=settings.hero_title||"Style that feels like you.";heroText.value=settings.hero_text||"Discover hand-picked fashion, jewellery and beauty products from DA Diva Collection.";heroCta.value=settings.hero_cta||"Explore Collection";instagramHandle.value=settings.instagram_handle||"@DAdivacollection";instagramUrl.value=settings.instagram_url||"https://instagram.com/DAdivacollection";sectionTitle.value=settings.section_title||"Featured Collection";footerText.value=settings.footer_text||"Trendy picks • Easy shopping";
+ heroCurrent.textContent=settings.hero_image_url?"Current banner saved.":"No banner selected.";logoCurrent.textContent=settings.logo_url?"Current logo saved.":"No logo selected.";
+}
+$("saveSettings").onclick=async()=>{
+ try{
+  $("saveSettings").disabled=true;
+  let heroUrl=settings.hero_image_url||null,logoUrl=settings.logo_url||null;
+  if(heroImage.files[0]) heroUrl=await uploadImage(heroImage.files[0]);
+  if(logoImage.files[0]) logoUrl=await uploadImage(logoImage.files[0]);
+  const row={id:1,brand_name:brandName.value.trim(),hero_title:heroTitle.value.trim(),hero_text:heroText.value.trim(),hero_cta:heroCta.value.trim(),hero_image_url:heroUrl,logo_url:logoUrl,instagram_handle:instagramHandle.value.trim(),instagram_url:instagramUrl.value.trim(),section_title:sectionTitle.value.trim(),footer_text:footerText.value.trim()};
+  const r=await db.from("site_settings").upsert(row,{onConflict:"id"});if(r.error)throw r.error;
+  settings=row;alert("Website settings saved!");heroImage.value="";logoImage.value="";loadSettings();
+ }catch(e){alert(e.message)}finally{$("saveSettings").disabled=false;}
+};
+
+function storagePathFromUrl(url){
+  if(!url) return null;
+  const marker="/storage/v1/object/public/product-images/";
+  const i=String(url).indexOf(marker);
+  if(i===-1) return null;
+  return decodeURIComponent(String(url).slice(i+marker.length));
+}
+async function removeImageByUrl(url){
+  const path=storagePathFromUrl(url);
+  if(!path) return;
+  const r=await db.storage.from("product-images").remove([path]);
+  if(r.error) throw r.error;
+}
+
+$("productForm").onsubmit=async e=>{e.preventDefault();saveBtn.disabled=true;let newImageUrl=null;try{
+  const isEdit=!!editId.value;
+  const oldImageUrl=currentImage.dataset.url||null;
+  let imageUrl=oldImageUrl;
+  if(productImage.files[0]){newImageUrl=await uploadImage(productImage.files[0]);imageUrl=newImageUrl;}
+  const row={name:productName.value.trim(),price:productPrice.value.trim(),category:productCategory.value.trim(),description:productDescription.value.trim(),image_url:imageUrl,buy_link:buyLink.value.trim(),is_active:true};
+  if(!row.name)throw new Error("Product name is required.");
+  let r=isEdit?await db.from("products").update(row).eq("id",editId.value):await db.from("products").insert(row);
+  if(r.error)throw r.error;
+  if(isEdit && newImageUrl && oldImageUrl && oldImageUrl!==newImageUrl){
+    try{await removeImageByUrl(oldImageUrl);}catch(cleanErr){console.warn("Old image cleanup failed:",cleanErr);}
+  }
+  alert(isEdit?"Product updated!":"Product added!");
+  resetForm();loadProducts();
+}catch(e){
+  if(newImageUrl){try{await removeImageByUrl(newImageUrl);}catch(cleanErr){console.warn("Rollback image cleanup failed:",cleanErr);}}
+  alert(e.message);
+}finally{saveBtn.disabled=false;}};
+
+async function loadProducts(){const r=await db.from("products").select("*").order("created_at",{ascending:false});if(r.error){productsList.innerHTML="<p>"+esc(r.error.message)+"</p>";return}products=r.data||[];renderProducts();}
+function renderProducts(){productsList.innerHTML=products.length?products.map(p=>`<div class="item"><img src="${p.image_url||"https://via.placeholder.com/80?text=No+Image"}"><div class="grow"><b>${esc(p.name)}</b><br><span class="small">${esc(p.price||"")} · ${esc(p.category||"")}</span></div><button class="secondary" onclick="editProduct('${p.id}')">✏️</button><button class="danger" onclick="deleteProduct('${p.id}')">🗑️</button></div>`).join(""):"<p class='small'>No products yet.</p>";}
+function editProduct(id){const p=products.find(x=>String(x.id)===String(id));if(!p)return;editId.value=p.id;productName.value=p.name||"";productPrice.value=p.price||"";productCategory.value=p.category||"";productDescription.value=p.description||"";buyLink.value=p.buy_link||"";currentImage.dataset.url=p.image_url||"";currentImage.textContent=p.image_url?"Current image saved.":"";formTitle.textContent="✏️ Edit Product";saveBtn.textContent="💾 Update Product";scrollTo(0,0);}
+async function deleteProduct(id){
+  if(!confirm("Delete this product?"))return;
+  const p=products.find(x=>String(x.id)===String(id));
+  const r=await db.from("products").delete().eq("id",id);
+  if(r.error){alert(r.error.message);return;}
+  if(p && p.image_url){
+    try{await removeImageByUrl(p.image_url);}
+    catch(e){alert("Product deleted, but old image could not be removed from Storage.");}
+  }
+  loadProducts();
+}
+function resetForm(){productForm.reset();editId.value="";currentImage.dataset.url="";currentImage.textContent="";formTitle.textContent="➕ Add Product";saveBtn.textContent="➕ Add Product";}
+clearBtn.onclick=resetForm;
+function esc(v){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+init();
+</script>
+</body></html>
