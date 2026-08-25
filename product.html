@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Product | DA Diva Collection</title>
+<style>
+:root{--wine:#7d123f;--pink:#c74f80;--soft:#fff7fb;--text:#271b22;--muted:#766b72}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:linear-gradient(180deg,#fff7fb 0,#fff 45%,#fff 100%)}
+a{text-decoration:none}.top{background:linear-gradient(120deg,#8b1749,#c74f80);color:#fff;padding:18px 24px}.nav{max-width:1180px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:15px}.brand{display:flex;align-items:center;gap:10px;font-family:Georgia,serif;font-weight:700;font-size:20px}.logo{width:42px;height:42px;border-radius:50%;object-fit:cover;background:#fff;border:0}.back-top{color:#fff;border:1px solid rgba(255,255,255,.5);padding:9px 14px;border-radius:999px;font-size:13px}.wrap{max-width:1180px;margin:0 auto;padding:38px 20px 60px}.loading{text-align:center;padding:80px 20px;color:var(--muted)}.card{display:grid;grid-template-columns:minmax(280px,520px) 1fr;gap:50px;align-items:center;background:#fff;border:1px solid #f0dce5;border-radius:24px;padding:28px;box-shadow:0 16px 45px rgba(125,18,63,.10)}.image-wrap{background:#fff7fb;border-radius:20px;overflow:hidden}.image-wrap img{width:100%;display:block;aspect-ratio:1/1;object-fit:cover}.category{display:inline-block;background:#fdebf3;color:var(--wine);font-weight:800;font-size:13px;padding:7px 11px;border-radius:999px;margin-bottom:14px}.name{font:700 clamp(30px,4vw,52px)/1.08 Georgia,serif;color:var(--wine);margin:0 0 16px}.price{font-size:26px;font-weight:800;margin:0 0 18px}.desc{font-size:16px;line-height:1.7;color:var(--muted);margin:0 0 28px}.actions{display:flex;flex-wrap:wrap;gap:10px}.actions a,.actions button{font:inherit;font-weight:800;border:0;cursor:pointer;padding:13px 18px;border-radius:12px}.buy{background:var(--wine);color:#fff}.share{background:#fdebf3;color:var(--wine)}.back{background:#f3edf0;color:#4b3f45}.error{text-align:center;padding:70px 20px}.error h2{font-family:Georgia,serif;color:var(--wine)}.error a{display:inline-block;margin-top:15px;color:#fff;background:var(--wine);padding:12px 18px;border-radius:12px;font-weight:800}@media(max-width:760px){.card{grid-template-columns:1fr;gap:25px;padding:16px}.wrap{padding:24px 12px 45px}.top{padding:12px 15px}.brand{font-size:17px}.logo{width:36px;height:36px}.back-top{font-size:12px}.actions a,.actions button{width:100%;text-align:center}}
+</style>
+</head>
+<body>
+<header class="top"><div class="nav"><a class="brand" href="./"><img id="logo" class="logo" alt="DA Diva logo"><span id="brand">DA Diva Collection</span></a><a class="back-top" href="./">← Collection</a></div></header>
+<main class="wrap"><div id="content" class="loading">Loading product...</div></main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const db=supabase.createClient("https://dhvjdzmdglpvlfaugyti.supabase.co","sb_publishable__LaL4b7mvou-w4w8LtKAog_53UF2TyM");
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+async function init(){
+ try{
+  const settings=await db.from('site_settings').select('*').eq('id',1).maybeSingle();
+  if(!settings.error&&settings.data){
+   if(settings.data.brand_name){$('brand').textContent=settings.data.brand_name;document.title='Product | '+settings.data.brand_name;}
+   if(settings.data.logo_url)$('logo').src=settings.data.logo_url;
+  }
+  const id=new URLSearchParams(location.search).get('id');
+  if(!id){showError('Product link is missing.');return;}
+  const result=await db.from('products').select('*').eq('id',id).eq('is_active',true).maybeSingle();
+  if(result.error){console.error(result.error);showError('Product load nahi ho pa raha. Please try again.');return;}
+  if(!result.data){showError('Product nahi mila ya available nahi hai.');return;}
+  const p=result.data;
+  document.title=(p.name||'Product')+' | '+($('brand').textContent||'DA Diva Collection');
+  const img=p.image_url||'https://via.placeholder.com/900x900?text=DA+Diva';
+  $('content').className='';
+  $('content').innerHTML=`<article class="card"><div class="image-wrap"><img src="${esc(img)}" alt="${esc(p.name||'Product')}"></div><div>${p.category?`<span class="category">${esc(p.category)}</span>`:''}<h1 class="name">${esc(p.name||'Product')}</h1><div class="price">₹${esc(p.price||'')}</div><p class="desc">${esc(p.description||'Hand-picked product from DA Diva Collection.')}</p><div class="actions"><a class="buy" href="${esc(p.buy_link||'#')}" target="_blank" rel="noopener noreferrer">Buy Now</a><button class="share" onclick="shareProduct()">Share Product</button><a class="back" href="./">← Back to Collection</a></div></div></article>`;
+ }catch(e){console.error(e);showError('Something went wrong while loading this product.');}
+}
+function showError(msg){$('content').className='error';$('content').innerHTML=`<h2>${esc(msg)}</h2><a href="./">← Back to Collection</a>`;}
+async function shareProduct(){const url=location.href;try{if(navigator.share){await navigator.share({title:document.title,url});}else{await navigator.clipboard.writeText(url);alert('Product link copied.');}}catch(e){try{await navigator.clipboard.writeText(url);alert('Product link copied.');}catch(_){prompt('Copy this product link:',url);}}}
+init();
+</script>
+</body>
+</html>
